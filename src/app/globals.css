@@ -1,0 +1,71 @@
+@import "tailwindcss";
+
+/*
+ * Swiss 设计语言 — 经纬
+ * 白底 / 1px 细线网格 / 唯一强调色 Swiss Red / Helvetica 系统栈
+ * 纪律：全站直角（无圆角）、无阴影、文字左对齐、tabular-nums 数字构图
+ */
+
+@theme {
+  /* 表面 */
+  --color-paper: #ffffff;
+  --color-surface: #f7f7f8;
+
+  /* 文字 */
+  --color-ink: #000000;
+  --color-ink-2: #52525b;
+
+  /* 结构 */
+  --color-hairline: #e4e4e7;
+
+  /* 强调（唯一） */
+  --color-accent: #e4002b;
+
+  /* 字体：单一家族 */
+  --font-sans: "Helvetica Neue", Helvetica, "PingFang SC", "Microsoft YaHei",
+    Arial, sans-serif;
+}
+
+html {
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+}
+
+/* 数字统一等宽数字，作为构图元素 */
+.nums {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+/* 极简过渡（仅透明度） */
+button,
+a {
+  transition: opacity 150ms ease;
+}
+
+button:active,
+a:active {
+  opacity: 0.6;
+}
+
+/* 原生表单控件对齐 Swiss 语言：直角、细线边框 */
+input,
+select,
+textarea {
+  border-radius: 0;
+  font-family: var(--font-sans);
+}
+
+input[type="date"] {
+  font-variant-numeric: tabular-nums;
+}
+
+::selection {
+  background: var(--color-accent);
+  color: #ffffff;
+}
