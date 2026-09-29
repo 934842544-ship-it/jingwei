@@ -118,18 +118,18 @@ function toTaskWithGoal(row: {
   };
 }
 
-function goalQueryWhere(statusFilter?: string) {
+function goalQueryWhere(statusFilter?: string, hasUserId = true) {
   const where: string[] = [];
+  if (hasUserId) where.push("g.userId = @userId");
   if (statusFilter) where.push("g.status = @status");
   return where.length ? `WHERE ${where.join(" AND ")}` : "";
 }
 
-function getGoalsWithStats(statusFilter?: string): GoalWithStats[] {
+function getGoalsWithStats(userId: string, statusFilter?: string): GoalWithStats[] {
   const db = getDb();
-  const where = goalQueryWhere(statusFilter);
-  const rows = db
-    .prepare(
-      `
+  const where = goalQueryWhere(statusFilter, true);
+  const stmt = db.prepare(
+    `
     SELECT
       g.id, g.title, g.description, g.deadline, g.status, g.manualProgress,
       COUNT(t.id) as taskTotal,
@@ -142,16 +142,18 @@ function getGoalsWithStats(statusFilter?: string): GoalWithStats[] {
       CASE g.status WHEN 'ACTIVE' THEN 0 WHEN 'DONE' THEN 1 ELSE 2 END,
       g.deadline IS NULL, g.deadline ASC, g.createdAt DESC
   `,
-    )
-    .all(statusFilter ? { status: statusFilter } : undefined) as any[];
+  );
+  const params: Record<string, any> = { userId };
+  if (statusFilter) params.status = statusFilter;
+  const rows = stmt.all(params) as any[];
   return rows.map(toGoalStats);
 }
 
-export const getGoals = cache(async (): Promise<GoalWithStats[]> => {
-  return getGoalsWithStats();
+export const getGoals = cache(async (userId: string): Promise<GoalWithStats[]> => {
+  return getGoalsWithStats(userId);
 });
 
-export const getGoal = cache(async (id: string): Promise<GoalWithStats | null> => {
+export const getGoal = cache(async (userId: string, id: string): Promise<GoalWithStats | null> => {
   const db = getDb();
   const row = db
     .prepare(
@@ -162,16 +164,16 @@ export const getGoal = cache(async (id: string): Promise<GoalWithStats | null> =
       SUM(CASE WHEN t.done = 1 THEN 1 ELSE 0 END) as taskDone
     FROM Goal g
     LEFT JOIN Task t ON t.goalId = g.id
-    WHERE g.id = @id
+    WHERE g.id = @id AND g.userId = @userId
     GROUP BY g.id
   `,
     )
-    .get({ id }) as any;
+    .get({ id, userId }) as any;
   return row ? toGoalStats(row) : null;
 });
 
 export const getGoalTasks = cache(
-  async (goalId: string): Promise<TaskWithGoal[]> => {
+  async (userId: string, goalId: string): Promise<TaskWithGoal[]> => {
     const db = getDb();
     const rows = db
       .prepare(
@@ -179,26 +181,26 @@ export const getGoalTasks = cache(
       SELECT t.*, g.title as goalTitle
       FROM Task t
       LEFT JOIN Goal g ON g.id = t.goalId
-      WHERE t.goalId = @goalId
+      WHERE t.goalId = @goalId AND t.userId = @userId
       ORDER BY
         t.done ASC,
         t.dueDate IS NULL, t.dueDate ASC,
         t.createdAt DESC
     `,
       )
-      .all({ goalId }) as any[];
+      .all({ goalId, userId }) as any[];
     return rows.map(toTaskWithGoal);
   },
 );
 
 export const getTasks = cache(
-  async (filters: TaskFilters): Promise<TaskWithGoal[]> => {
+  async (userId: string, filters: TaskFilters): Promise<TaskWithGoal[]> => {
     const today = new Date();
     const dayStart = toDateString(startOfDay(today));
     const dayEnd = toDateString(addDays(startOfDay(today), 1));
 
-    const where: string[] = [];
-    const params: Record<string, any> = {};
+    const where: string[] = ["t.userId = @userId"];
+    const params: Record<string, any> = { userId };
 
     if (filters.status === "open") where.push("t.done = 0");
     if (filters.status === "done") where.push("t.done = 1");
@@ -240,7 +242,7 @@ export const getTasks = cache(
 
 const HEATMAP_DAYS = 91;
 
-export const getHabits = cache(async (): Promise<HabitWithRecords[]> => {
+export const getHabits = cache(async (userId: string): Promise<HabitWithRecords[]> => {
   const db = getDb();
   const since = toDateString(
     addDays(startOfDay(new Date()), -(HEATMAP_DAYS - 1)),
@@ -249,15 +251,21 @@ export const getHabits = cache(async (): Promise<HabitWithRecords[]> => {
   const habits = db
     .prepare(
       `SELECT id, name, targetPerWeek FROM Habit
-       WHERE archived = 0 ORDER BY createdAt ASC`,
+       WHERE archived = 0 AND userId = @userId ORDER BY createdAt ASC`,
     )
-    .all() as { id: string; name: string; targetPerWeek: number }[];
+    .all({ userId }) as { id: string; name: string; targetPerWeek: number }[];
 
-  const records = db
-    .prepare(
-      `SELECT habitId, date FROM HabitRecord WHERE date >= @since ORDER BY date ASC`,
-    )
-    .all({ since }) as { habitId: string; date: string }[];
+  const habitIds = habits.map((h) => h.id);
+  const records = habitIds.length > 0
+    ? db
+        .prepare(
+          `SELECT hr.habitId, hr.date FROM HabitRecord hr
+           INNER JOIN Habit h ON h.id = hr.habitId
+           WHERE h.userId = @userId AND hr.date >= @since
+           ORDER BY hr.date ASC`,
+        )
+        .all({ userId, since }) as { habitId: string; date: string }[]
+    : [];
 
   const map = new Map<string, string[]>();
   for (const r of records) {
@@ -274,11 +282,11 @@ export const getHabits = cache(async (): Promise<HabitWithRecords[]> => {
   }));
 });
 
-export const getActiveGoals = cache(async (): Promise<GoalWithStats[]> => {
-  return getGoalsWithStats("ACTIVE");
+export const getActiveGoals = cache(async (userId: string): Promise<GoalWithStats[]> => {
+  return getGoalsWithStats(userId, "ACTIVE");
 });
 
-export const getDashboard = cache(async (): Promise<DashboardData> => {
+export const getDashboard = cache(async (userId: string): Promise<DashboardData> => {
   const today = new Date();
   const dayStart = toDateString(startOfDay(today));
   const dayEnd = toDateString(addDays(startOfDay(today), 1));
@@ -289,32 +297,32 @@ export const getDashboard = cache(async (): Promise<DashboardData> => {
     .prepare(
       `SELECT t.*, g.title as goalTitle FROM Task t
        LEFT JOIN Goal g ON g.id = t.goalId
-       WHERE t.done = 0 AND t.dueDate < @dayStart
+       WHERE t.userId = @userId AND t.done = 0 AND t.dueDate < @dayStart
        ORDER BY t.dueDate ASC`,
     )
-    .all({ dayStart }) as any[];
+    .all({ userId, dayStart }) as any[];
 
   const dueTodayRows = db
     .prepare(
       `SELECT t.*, g.title as goalTitle FROM Task t
        LEFT JOIN Goal g ON g.id = t.goalId
-       WHERE t.done = 0 AND t.dueDate >= @dayStart AND t.dueDate < @dayEnd
+       WHERE t.userId = @userId AND t.done = 0 AND t.dueDate >= @dayStart AND t.dueDate < @dayEnd
        ORDER BY
          CASE t.priority WHEN 'HIGH' THEN 0 WHEN 'NORMAL' THEN 1 ELSE 2 END,
          t.createdAt DESC`,
     )
-    .all({ dayStart, dayEnd }) as any[];
+    .all({ userId, dayStart, dayEnd }) as any[];
 
   const completedRows = db
     .prepare(
       `SELECT t.*, g.title as goalTitle FROM Task t
        LEFT JOIN Goal g ON g.id = t.goalId
-       WHERE t.done = 1 AND t.doneAt >= @dayStart AND t.doneAt < @dayEnd
+       WHERE t.userId = @userId AND t.done = 1 AND t.doneAt >= @dayStart AND t.doneAt < @dayEnd
        ORDER BY t.doneAt DESC`,
     )
-    .all({ dayStart, dayEnd }) as any[];
+    .all({ userId, dayStart, dayEnd }) as any[];
 
-  const [habits, goals] = await Promise.all([getHabits(), getActiveGoals()]);
+  const [habits, goals] = await Promise.all([getHabits(userId), getActiveGoals(userId)]);
 
   return {
     today,
@@ -326,7 +334,7 @@ export const getDashboard = cache(async (): Promise<DashboardData> => {
   };
 });
 
-export const getStats = cache(async (): Promise<StatsData> => {
+export const getStats = cache(async (userId: string): Promise<StatsData> => {
   const today = new Date();
   const weekStart = toDateString(startOfWeek(today));
   const monthStart = toDateString(
@@ -341,24 +349,24 @@ export const getStats = cache(async (): Promise<StatsData> => {
       `SELECT
         COUNT(*) as total,
         SUM(CASE WHEN done = 1 THEN 1 ELSE 0 END) as done
-       FROM Task WHERE createdAt >= @weekStart`,
+       FROM Task WHERE userId = @userId AND createdAt >= @weekStart`,
     )
-    .get({ weekStart }) as { total: number; done: number };
+    .get({ userId, weekStart }) as { total: number; done: number };
 
   const monthRow = db
     .prepare(
       `SELECT
         COUNT(*) as total,
         SUM(CASE WHEN done = 1 THEN 1 ELSE 0 END) as done
-       FROM Task WHERE createdAt >= @monthStart`,
+       FROM Task WHERE userId = @userId AND createdAt >= @monthStart`,
     )
-    .get({ monthStart }) as { total: number; done: number };
+    .get({ userId, monthStart }) as { total: number; done: number };
 
   const doneRows = db
     .prepare(
-      `SELECT doneAt FROM Task WHERE done = 1 AND doneAt >= @since30`,
+      `SELECT doneAt FROM Task WHERE userId = @userId AND done = 1 AND doneAt >= @since30`,
     )
-    .all({ since30 }) as { doneAt: string }[];
+    .all({ userId, since30 }) as { doneAt: string }[];
 
   const counts = new Map<string, number>();
   for (let i = 0; i < 30; i++) {
@@ -374,11 +382,11 @@ export const getStats = cache(async (): Promise<StatsData> => {
       `SELECT h.id, h.name, h.targetPerWeek, COUNT(hr.id) as thisWeek
        FROM Habit h
        LEFT JOIN HabitRecord hr ON hr.habitId = h.id AND hr.date >= @weekStart
-       WHERE h.archived = 0
+       WHERE h.userId = @userId AND h.archived = 0
        GROUP BY h.id
        ORDER BY h.createdAt ASC`,
     )
-    .all({ weekStart }) as {
+    .all({ userId, weekStart }) as {
     id: string;
     name: string;
     targetPerWeek: number;
