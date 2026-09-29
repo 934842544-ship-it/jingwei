@@ -5,8 +5,14 @@ const COOKIE_NAME = process.env.SESSION_COOKIE_NAME || "session";
 
 const PUBLIC_PATHS = ["/login", "/register"];
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
+
+  // API 路由自己处理认证（Bearer token / session cookie 均可）
+  if (pathname.startsWith("/api/")) {
+    return NextResponse.next();
+  }
+
   const isPublicPath = PUBLIC_PATHS.some(
     (p) => pathname === p || pathname.startsWith(`${p}/`),
   );

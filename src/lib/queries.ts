@@ -256,6 +256,21 @@ export const getTasks = cache(
   },
 );
 
+export const getTask = cache(async (userId: string, id: string): Promise<TaskWithGoal | null> => {
+  const db = getDb();
+  const row = db
+    .prepare(
+      `
+      SELECT t.*, g.title as goalTitle
+      FROM Task t
+      LEFT JOIN Goal g ON g.id = t.goalId
+      WHERE t.id = @id AND t.userId = @userId
+    `,
+    )
+    .get({ id, userId }) as TaskRow | undefined;
+  return row ? toTaskWithGoal(row) : null;
+});
+
 const HEATMAP_DAYS = 91;
 
 export const getHabits = cache(async (userId: string): Promise<HabitWithRecords[]> => {
@@ -266,10 +281,10 @@ export const getHabits = cache(async (userId: string): Promise<HabitWithRecords[
 
   const habits = db
     .prepare(
-      `SELECT id, name, targetPerWeek FROM Habit
+      `SELECT id, name, targetPerWeek, archived FROM Habit
        WHERE archived = 0 AND userId = @userId ORDER BY createdAt ASC`,
     )
-    .all({ userId }) as { id: string; name: string; targetPerWeek: number }[];
+    .all({ userId }) as { id: string; name: string; targetPerWeek: number; archived: number }[];
 
   const habitIds = habits.map((h) => h.id);
   const records = habitIds.length > 0
@@ -294,8 +309,42 @@ export const getHabits = cache(async (userId: string): Promise<HabitWithRecords[
     id: h.id,
     name: h.name,
     targetPerWeek: h.targetPerWeek,
+    archived: h.archived === 1,
     records: map.get(h.id) ?? [],
   }));
+});
+
+export const getHabit = cache(async (userId: string, id: string): Promise<HabitWithRecords | null> => {
+  const db = getDb();
+  const since = toDateString(
+    addDays(startOfDay(new Date()), -(HEATMAP_DAYS - 1)),
+  );
+
+  const habit = db
+    .prepare(
+      `SELECT id, name, targetPerWeek, archived FROM Habit
+       WHERE id = @id AND userId = @userId`,
+    )
+    .get({ id, userId }) as
+    | { id: string; name: string; targetPerWeek: number; archived: number }
+    | undefined;
+  if (!habit) return null;
+
+  const records = db
+    .prepare(
+      `SELECT date FROM HabitRecord
+       WHERE habitId = @habitId AND date >= @since
+       ORDER BY date ASC`,
+    )
+    .all({ habitId: id, since }) as { date: string }[];
+
+  return {
+    id: habit.id,
+    name: habit.name,
+    targetPerWeek: habit.targetPerWeek,
+    archived: habit.archived === 1,
+    records: records.map((r) => r.date),
+  };
 });
 
 export const getActiveGoals = cache(async (userId: string): Promise<GoalWithStats[]> => {
