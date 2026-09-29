@@ -3,6 +3,7 @@ import { getTasks, getActiveGoals } from "@/lib/queries";
 import TaskItem from "@/components/tasks/TaskItem";
 import TaskForm from "@/components/tasks/TaskForm";
 import BigNumber from "@/components/ui/BigNumber";
+import { requireUser } from "@/lib/auth/user";
 
 export const dynamic = "force-dynamic";
 
@@ -16,6 +17,7 @@ export default async function TasksPage({
     today?: string;
   }>;
 }) {
+  const user = await requireUser();
   const sp = await searchParams;
   const status =
     sp.status === "all" || sp.status === "open" || sp.status === "done"
@@ -32,7 +34,7 @@ export default async function TasksPage({
   const today = sp.today === "1";
 
   const [tasks, goals] = await Promise.all([
-    getTasks({
+    getTasks(user.id, {
       status: status as "all" | "open" | "done",
       priority:
         priority === "all"
@@ -41,7 +43,7 @@ export default async function TasksPage({
       goalId,
       today,
     }),
-    getActiveGoals(),
+    getActiveGoals(user.id),
   ]);
 
   const now = new Date();

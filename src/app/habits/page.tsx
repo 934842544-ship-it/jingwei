@@ -4,11 +4,13 @@ import HabitRow from "@/components/habits/HabitRow";
 import BigNumber from "@/components/ui/BigNumber";
 import EmptyState from "@/components/ui/EmptyState";
 import { computeStreaks } from "@/lib/streaks";
+import { requireUser } from "@/lib/auth/user";
 
 export const dynamic = "force-dynamic";
 
 export default async function HabitsPage() {
-  const habits = await getHabits();
+  const user = await requireUser();
+  const habits = await getHabits(user.id);
   const today = new Date();
 
   const totalStreaks = habits.reduce((sum, h) => {

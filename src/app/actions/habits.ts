@@ -3,8 +3,10 @@
 import { revalidatePath } from "next/cache";
 import { getDb, cuid, nowIso } from "@/lib/db";
 import { toDateString, startOfDay } from "@/lib/date";
+import { requireUser } from "@/lib/auth/user";
 
 export async function createHabit(formData: FormData) {
+  const user = await requireUser();
   const name = (formData.get("name") as string)?.trim();
   if (!name) return;
 
@@ -16,8 +18,9 @@ export async function createHabit(formData: FormData) {
   const db = getDb();
   const id = cuid();
   db.prepare(
-    `INSERT INTO Habit (id, name, targetPerWeek, createdAt) VALUES (@id, @name, @targetPerWeek, @createdAt)`,
-  ).run({ id, name, targetPerWeek, createdAt: nowIso() });
+    `INSERT INTO Habit (id, userId, name, targetPerWeek, createdAt)
+     VALUES (@id, @userId, @name, @targetPerWeek, @createdAt)`,
+  ).run({ id, userId: user.id, name, targetPerWeek, createdAt: nowIso() });
 
   revalidatePath("/", "layout");
 }
@@ -27,12 +30,15 @@ export async function updateHabit(id: string, data: {
   targetPerWeek?: number;
   archived?: boolean;
 }) {
+  const user = await requireUser();
   const db = getDb();
-  const existing = db.prepare("SELECT id FROM Habit WHERE id = @id").get({ id });
+  const existing = db
+    .prepare("SELECT id FROM Habit WHERE id = @id AND userId = @userId")
+    .get({ id, userId: user.id });
   if (!existing) return;
 
   const fields: string[] = [];
-  const params: Record<string, any> = { id };
+  const params: Record<string, string | number | null> = { id, userId: user.id };
 
   if (data.name !== undefined) {
     fields.push("name = @name");
@@ -48,7 +54,7 @@ export async function updateHabit(id: string, data: {
   }
   if (fields.length === 0) return;
 
-  db.prepare(`UPDATE Habit SET ${fields.join(", ")} WHERE id = @id`).run(params);
+  db.prepare(`UPDATE Habit SET ${fields.join(", ")} WHERE id = @id AND userId = @userId`).run(params);
   revalidatePath("/", "layout");
 }
 
@@ -56,7 +62,14 @@ export async function toggleHabitRecord(
   habitId: string,
   date?: Date,
 ): Promise<boolean> {
+  const user = await requireUser();
   const db = getDb();
+
+  const habit = db
+    .prepare("SELECT id FROM Habit WHERE id = @habitId AND userId = @userId")
+    .get({ habitId, userId: user.id });
+  if (!habit) return false;
+
   const dateStr = toDateString(startOfDay(date ?? new Date()));
 
   const existing = db
@@ -71,7 +84,8 @@ export async function toggleHabitRecord(
   } else {
     const id = cuid();
     db.prepare(
-      `INSERT OR IGNORE INTO HabitRecord (id, habitId, date, createdAt) VALUES (@id, @habitId, @date, @createdAt)`,
+      `INSERT OR IGNORE INTO HabitRecord (id, habitId, date, createdAt)
+       VALUES (@id, @habitId, @date, @createdAt)`,
     ).run({ id, habitId, date: dateStr, createdAt: nowIso() });
     revalidatePath("/", "layout");
     return true;
@@ -79,7 +93,8 @@ export async function toggleHabitRecord(
 }
 
 export async function deleteHabit(id: string) {
+  const user = await requireUser();
   const db = getDb();
-  db.prepare("DELETE FROM Habit WHERE id = @id").run({ id });
+  db.prepare("DELETE FROM Habit WHERE id = @id AND userId = @userId").run({ id, userId: user.id });
   revalidatePath("/", "layout");
 }

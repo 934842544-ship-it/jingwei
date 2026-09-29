@@ -6,6 +6,7 @@ import ManualProgress from "@/components/goals/ManualProgress";
 import TaskForm from "@/components/tasks/TaskForm";
 import TaskItem from "@/components/tasks/TaskItem";
 import { formatDisplayDate } from "@/lib/date";
+import { requireUser } from "@/lib/auth/user";
 
 export const dynamic = "force-dynamic";
 
@@ -14,11 +15,12 @@ export default async function GoalDetailPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  const user = await requireUser();
   const { id } = await params;
-  const goal = await getGoal(id);
+  const goal = await getGoal(user.id, id);
   if (!goal) notFound();
 
-  const tasks = await getGoalTasks(id);
+  const tasks = await getGoalTasks(user.id, id);
 
   const progress =
     goal.taskTotal > 0

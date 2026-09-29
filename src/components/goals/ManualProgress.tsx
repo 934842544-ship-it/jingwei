@@ -17,10 +17,7 @@ export default function ManualProgress({
     const v = Number(e.target.value);
     setValue(v);
     startTransition(async () => {
-      const formData = new FormData();
-      formData.append("id", goalId);
-      formData.append("progress", String(v));
-      await setManualProgress(formData);
+      await setManualProgress(goalId, v);
     });
   }
 

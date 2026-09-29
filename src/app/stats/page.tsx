@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getStats } from "@/lib/queries";
 import BigNumber from "@/components/ui/BigNumber";
 import TrendChart from "@/components/stats/TrendChart";
+import { requireUser } from "@/lib/auth/user";
 
 export const dynamic = "force-dynamic";
 
@@ -10,9 +11,10 @@ export default async function StatsPage({
 }: {
   searchParams: Promise<{ range?: string }>;
 }) {
+  const user = await requireUser();
   const sp = await searchParams;
   const range = sp.range === "month" ? "month" : "week";
-  const stats = await getStats();
+  const stats = await getStats(user.id);
 
   const period = range === "week" ? stats.week : stats.month;
   const rate = period.total > 0 ? Math.round((period.done / period.total) * 100) : 0;

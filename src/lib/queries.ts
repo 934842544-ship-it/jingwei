@@ -30,6 +30,7 @@ export interface HabitWithRecords {
   id: string;
   name: string;
   targetPerWeek: number;
+  archived: boolean;
   records: string[];
 }
 
@@ -62,13 +63,7 @@ export interface StatsData {
   }[];
 }
 
-function parseDate(s: string | null): Date | null {
-  if (!s) return null;
-  const d = new Date(s);
-  return Number.isNaN(d.getTime()) ? null : d;
-}
-
-function toGoalStats(row: {
+interface GoalRow {
   id: string;
   title: string;
   description: string | null;
@@ -77,7 +72,28 @@ function toGoalStats(row: {
   manualProgress: number;
   taskTotal: number;
   taskDone: number;
-}): GoalWithStats {
+}
+
+interface TaskRow {
+  id: string;
+  title: string;
+  notes: string | null;
+  goalId: string | null;
+  priority: string;
+  dueDate: string | null;
+  done: number;
+  doneAt: string | null;
+  createdAt: string;
+  goalTitle: string | null;
+}
+
+function parseDate(s: string | null): Date | null {
+  if (!s) return null;
+  const d = new Date(s);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+function toGoalStats(row: GoalRow): GoalWithStats {
   return {
     id: row.id,
     title: row.title,
@@ -90,7 +106,7 @@ function toGoalStats(row: {
   };
 }
 
-function toTaskWithGoal(row: {
+export function toTaskWithGoal(row: {
   id: string;
   title: string;
   notes: string | null;
@@ -143,9 +159,9 @@ function getGoalsWithStats(userId: string, statusFilter?: string): GoalWithStats
       g.deadline IS NULL, g.deadline ASC, g.createdAt DESC
   `,
   );
-  const params: Record<string, any> = { userId };
+  const params: Record<string, string> = { userId };
   if (statusFilter) params.status = statusFilter;
-  const rows = stmt.all(params) as any[];
+  const rows = stmt.all(params) as GoalRow[];
   return rows.map(toGoalStats);
 }
 
@@ -168,7 +184,7 @@ export const getGoal = cache(async (userId: string, id: string): Promise<GoalWit
     GROUP BY g.id
   `,
     )
-    .get({ id, userId }) as any;
+    .get({ id, userId }) as GoalRow | undefined;
   return row ? toGoalStats(row) : null;
 });
 
@@ -188,7 +204,7 @@ export const getGoalTasks = cache(
         t.createdAt DESC
     `,
       )
-      .all({ goalId, userId }) as any[];
+      .all({ goalId, userId }) as TaskRow[];
     return rows.map(toTaskWithGoal);
   },
 );
@@ -200,7 +216,7 @@ export const getTasks = cache(
     const dayEnd = toDateString(addDays(startOfDay(today), 1));
 
     const where: string[] = ["t.userId = @userId"];
-    const params: Record<string, any> = { userId };
+    const params: Record<string, string> = { userId };
 
     if (filters.status === "open") where.push("t.done = 0");
     if (filters.status === "done") where.push("t.done = 1");
@@ -235,7 +251,7 @@ export const getTasks = cache(
         t.createdAt DESC
     `,
       )
-      .all(params) as any[];
+      .all(params) as TaskRow[];
     return rows.map(toTaskWithGoal);
   },
 );
@@ -300,7 +316,7 @@ export const getDashboard = cache(async (userId: string): Promise<DashboardData>
        WHERE t.userId = @userId AND t.done = 0 AND t.dueDate < @dayStart
        ORDER BY t.dueDate ASC`,
     )
-    .all({ userId, dayStart }) as any[];
+    .all({ userId, dayStart }) as TaskRow[];
 
   const dueTodayRows = db
     .prepare(
@@ -311,7 +327,7 @@ export const getDashboard = cache(async (userId: string): Promise<DashboardData>
          CASE t.priority WHEN 'HIGH' THEN 0 WHEN 'NORMAL' THEN 1 ELSE 2 END,
          t.createdAt DESC`,
     )
-    .all({ userId, dayStart, dayEnd }) as any[];
+    .all({ userId, dayStart, dayEnd }) as TaskRow[];
 
   const completedRows = db
     .prepare(
@@ -320,7 +336,7 @@ export const getDashboard = cache(async (userId: string): Promise<DashboardData>
        WHERE t.userId = @userId AND t.done = 1 AND t.doneAt >= @dayStart AND t.doneAt < @dayEnd
        ORDER BY t.doneAt DESC`,
     )
-    .all({ userId, dayStart, dayEnd }) as any[];
+    .all({ userId, dayStart, dayEnd }) as TaskRow[];
 
   const [habits, goals] = await Promise.all([getHabits(userId), getActiveGoals(userId)]);
 

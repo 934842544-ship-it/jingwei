@@ -5,11 +5,13 @@ import TaskItem from "@/components/tasks/TaskItem";
 import HabitRow from "@/components/habits/HabitRow";
 import EmptyState from "@/components/ui/EmptyState";
 import { formatDisplayDate } from "@/lib/date";
+import { requireUser } from "@/lib/auth/user";
 
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
-  const data = await getDashboard();
+  const user = await requireUser();
+  const data = await getDashboard(user.id);
   const today = data.today;
   const dueToday = data.dueToday;
   const overdue = data.overdue;

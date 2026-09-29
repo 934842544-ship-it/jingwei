@@ -3,11 +3,13 @@ import GoalCard from "@/components/goals/GoalCard";
 import GoalForm from "@/components/goals/GoalForm";
 import BigNumber from "@/components/ui/BigNumber";
 import EmptyState from "@/components/ui/EmptyState";
+import { requireUser } from "@/lib/auth/user";
 
 export const dynamic = "force-dynamic";
 
 export default async function GoalsPage() {
-  const goals = await getGoals();
+  const user = await requireUser();
+  const goals = await getGoals(user.id);
   const active = goals.filter((g) => g.status === "ACTIVE");
   const done = goals.filter((g) => g.status === "DONE");
   const archived = goals.filter((g) => g.status === "ARCHIVED");

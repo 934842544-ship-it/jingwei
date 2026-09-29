@@ -1,18 +1,10 @@
-"use client";
-
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { getCurrentUser } from "@/lib/auth/user";
+import { logout } from "@/app/actions/auth";
+import NavLinks from "./NavLinks";
 
-const NAV = [
-  { href: "/", label: "今日" },
-  { href: "/goals", label: "目标" },
-  { href: "/tasks", label: "任务" },
-  { href: "/habits", label: "习惯" },
-  { href: "/stats", label: "统计" },
-];
-
-export default function Masthead() {
-  const pathname = usePathname();
+export default async function Masthead() {
+  const user = await getCurrentUser();
 
   return (
     <header className="border-b border-hairline">
@@ -23,28 +15,37 @@ export default function Masthead() {
         >
           经纬
         </Link>
-        <nav className="flex" aria-label="主导航">
-          {NAV.map((item) => {
-            const active =
-              item.href === "/"
-                ? pathname === "/"
-                : pathname.startsWith(item.href);
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                aria-current={active ? "page" : undefined}
-                className={`-mb-px border-b-2 px-4 pb-3 text-sm ${
-                  active
-                    ? "border-accent font-semibold text-accent"
-                    : "border-transparent text-ink-2 hover:text-ink"
-                }`}
+        {user ? (
+          <div className="flex items-center gap-6">
+            <NavLinks />
+            <form action={logout} className="flex items-center gap-3">
+              <span className="text-sm text-ink-2 truncate max-w-[12rem]">
+                {user.email}
+              </span>
+              <button
+                type="submit"
+                className="text-sm font-semibold text-ink-2 hover:text-ink"
               >
-                {item.label}
-              </Link>
-            );
-          })}
-        </nav>
+                退出
+              </button>
+            </form>
+          </div>
+        ) : (
+          <nav className="flex gap-4">
+            <Link
+              href="/login"
+              className="pb-3 text-sm font-semibold text-ink-2 hover:text-ink"
+            >
+              登录
+            </Link>
+            <Link
+              href="/register"
+              className="pb-3 text-sm font-semibold text-accent hover:underline"
+            >
+              注册
+            </Link>
+          </nav>
+        )}
       </div>
     </header>
   );
