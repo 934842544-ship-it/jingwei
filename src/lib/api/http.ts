@@ -1,6 +1,7 @@
 export const PRIORITIES = ["HIGH", "NORMAL", "LOW"] as const;
 export const GOAL_STATUSES = ["ACTIVE", "DONE", "ARCHIVED"] as const;
-export const TASK_FILTER_STATUSES = ["all", "open", "done"] as const;
+export const TASK_FILTER_STATUSES = ["all", "open", "waiting", "done"] as const;
+export const TASK_STATUSES = ["OPEN", "WAITING", "DONE"] as const;
 
 export type Priority = (typeof PRIORITIES)[number];
 export type GoalStatus = (typeof GOAL_STATUSES)[number];
