@@ -14,6 +14,14 @@ export default async function GoalsPage() {
   const done = goals.filter((g) => g.status === "DONE");
   const archived = goals.filter((g) => g.status === "ARCHIVED");
 
+  const topLevelActive = active.filter((g) => !g.parentId);
+  const topLevelDone = done.filter((g) => !g.parentId);
+  const topLevelArchived = archived.filter((g) => !g.parentId);
+
+  function getChildren(parentId: string) {
+    return goals.filter((g) => g.parentId === parentId);
+  }
+
   return (
     <div className="space-y-10">
       <header className="grid grid-cols-1 gap-6 md:grid-cols-12 md:items-end">
@@ -30,10 +38,10 @@ export default async function GoalsPage() {
           <h2 className="mb-3 text-xs font-semibold tracking-widest text-ink-2">
             进行中
           </h2>
-          {active.length > 0 ? (
-            <div className="grid gap-3 sm:grid-cols-2">
-              {active.map((g) => (
-                <GoalCard key={g.id} goal={g} />
+          {topLevelActive.length > 0 ? (
+            <div className="space-y-3">
+              {topLevelActive.map((g) => (
+                <GoalCard key={g.id} goal={g} childrenGoals={getChildren(g.id).filter(c => c.status === "ACTIVE")} />
               ))}
             </div>
           ) : (
@@ -48,32 +56,32 @@ export default async function GoalsPage() {
             新建目标
           </h2>
           <div className="border border-hairline p-4">
-            <GoalForm />
+            <GoalForm goals={active} />
           </div>
         </div>
       </section>
 
-      {done.length > 0 ? (
+      {topLevelDone.length > 0 ? (
         <section>
           <h2 className="mb-3 text-xs font-semibold tracking-widest text-ink-2">
             已完成
           </h2>
-          <div className="grid gap-3 sm:grid-cols-2">
-            {done.map((g) => (
-              <GoalCard key={g.id} goal={g} />
+          <div className="space-y-3">
+            {topLevelDone.map((g) => (
+              <GoalCard key={g.id} goal={g} childrenGoals={getChildren(g.id).filter(c => c.status === "DONE")} />
             ))}
           </div>
         </section>
       ) : null}
 
-      {archived.length > 0 ? (
+      {topLevelArchived.length > 0 ? (
         <section>
           <h2 className="mb-3 text-xs font-semibold tracking-widest text-ink-2">
             已归档
           </h2>
-          <div className="grid gap-3 sm:grid-cols-2">
-            {archived.map((g) => (
-              <GoalCard key={g.id} goal={g} />
+          <div className="space-y-3">
+            {topLevelArchived.map((g) => (
+              <GoalCard key={g.id} goal={g} childrenGoals={getChildren(g.id).filter(c => c.status === "ARCHIVED")} />
             ))}
           </div>
         </section>

@@ -20,7 +20,10 @@ export default async function TasksPage({
   const user = await requireUser();
   const sp = await searchParams;
   const status =
-    sp.status === "all" || sp.status === "open" || sp.status === "done"
+    sp.status === "all" ||
+    sp.status === "open" ||
+    sp.status === "waiting" ||
+    sp.status === "done"
       ? sp.status
       : "all";
   const priority =
@@ -35,7 +38,7 @@ export default async function TasksPage({
 
   const [tasks, goals] = await Promise.all([
     getTasks(user.id, {
-      status: status as "all" | "open" | "done",
+      status: status as "all" | "open" | "waiting" | "done",
       priority:
         priority === "all"
           ? "all"
@@ -47,8 +50,9 @@ export default async function TasksPage({
   ]);
 
   const now = new Date();
-  const doneCount = tasks.filter((t) => t.done).length;
-  const openCount = tasks.length - doneCount;
+  const doneCount = tasks.filter((t) => t.done || t.status === "DONE").length;
+  const openCount = tasks.filter((t) => t.status === "OPEN").length;
+  const waitingCount = tasks.filter((t) => t.status === "WAITING").length;
 
   function filterUrl(patch: Record<string, string>) {
     const params = new URLSearchParams({
@@ -71,7 +75,7 @@ export default async function TasksPage({
         <div className="md:col-span-8">
           <BigNumber value={openCount} suffix={tasks.length > 0 ? ` / ${tasks.length}` : ""} label="待办任务" accent />
           <p className="mt-3 text-sm text-ink-2">
-            已完成 {doneCount} 项
+            等待中 {waitingCount} 项 · 已完成 {doneCount} 项
           </p>
         </div>
       </header>
@@ -83,6 +87,7 @@ export default async function TasksPage({
           {[
             { v: "all", l: "全部" },
             { v: "open", l: "未完成" },
+            { v: "waiting", l: "等待中" },
             { v: "done", l: "已完成" },
           ].map((o) => (
             <Link
