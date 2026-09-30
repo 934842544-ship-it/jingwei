@@ -5,10 +5,12 @@ import { usePathname } from "next/navigation";
 
 const NAV = [
   { href: "/", label: "今日" },
-  { href: "/goals", label: "目标" },
   { href: "/tasks", label: "任务" },
+  { href: "/goals", label: "目标" },
   { href: "/habits", label: "习惯" },
+  { href: "/timeline", label: "时间线" },
   { href: "/stats", label: "统计" },
+  { href: "/reflection", label: "复盘" },
 ];
 
 export default function NavLinks() {

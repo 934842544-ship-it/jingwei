@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getStats } from "@/lib/queries";
 import BigNumber from "@/components/ui/BigNumber";
 import TrendChart from "@/components/stats/TrendChart";
+import LandingRateChart from "@/components/stats/LandingRateChart";
 import { requireUser } from "@/lib/auth/user";
 
 export const dynamic = "force-dynamic";
@@ -53,6 +54,39 @@ export default async function StatsPage({
           </div>
         </div>
       </header>
+
+      <section>
+        <h2 className="mb-3 text-xs font-semibold tracking-widest text-ink-2">
+          计划 vs 实际（近 7 天落地率）
+        </h2>
+        <div className="border border-hairline p-5">
+          <div className="mb-4 grid grid-cols-3 gap-4 text-center">
+            <div>
+              <div className="nums text-3xl font-bold text-ink">
+                {stats.landingRate.week.planned}
+              </div>
+              <div className="mt-1 text-xs text-ink-2">本周计划</div>
+            </div>
+            <div>
+              <div className="nums text-3xl font-bold text-ink">
+                {stats.landingRate.week.done}
+              </div>
+              <div className="mt-1 text-xs text-ink-2">本周完成</div>
+            </div>
+            <div>
+              <div
+                className={`nums text-3xl font-bold ${
+                  stats.landingRate.week.rate < 50 ? "text-accent" : "text-accent"
+                }`}
+              >
+                {stats.landingRate.week.rate}%
+              </div>
+              <div className="mt-1 text-xs text-ink-2">落地率</div>
+            </div>
+          </div>
+          <LandingRateChart data={stats.landingRate.last7} />
+        </div>
+      </section>
 
       <section>
         <h2 className="mb-3 text-xs font-semibold tracking-widest text-ink-2">

@@ -749,3 +749,108 @@ export const getStats = cache(async (userId: string): Promise<StatsData> => {
     habits: habitStats,
   };
 });
+
+export interface EventWithEntityName extends EventLogEntry {
+  entityName: string;
+}
+
+export const getEventTimeline = cache(async function getEventTimeline(
+  userId: string,
+  filter: "all" | "task" | "goal" | "habit" = "all",
+  limit = 50,
+): Promise<EventWithEntityName[]> {
+  const db = getDb();
+  const where = filter === "all" ? "" : "AND entityType = @entityType";
+  const rows = db
+    .prepare(
+      `SELECT * FROM EventLog
+       WHERE userId = @userId ${where}
+       ORDER BY createdAt DESC
+       LIMIT @limit`,
+    )
+    .all(
+      filter === "all"
+        ? { userId, limit }
+        : { userId, entityType: filter, limit },
+    ) as {
+    id: string;
+    entityType: string;
+    entityId: string;
+    action: string;
+    before: string | null;
+    after: string | null;
+    createdAt: string;
+  }[];
+
+  const taskIds = new Set<string>();
+  const goalIds = new Set<string>();
+  const habitIds = new Set<string>();
+  for (const row of rows) {
+    if (row.entityType === "task") taskIds.add(row.entityId);
+    if (row.entityType === "goal") goalIds.add(row.entityId);
+    if (row.entityType === "habit") habitIds.add(row.entityId);
+  }
+
+  const taskNames = new Map<string, string>();
+  if (taskIds.size > 0) {
+    const placeholders = Array.from(taskIds).map(() => "?").join(",");
+    const taskRows = db
+      .prepare(
+        `SELECT id, title FROM Task WHERE id IN (${placeholders}) AND userId = ?`,
+      )
+      .all(...Array.from(taskIds), userId) as { id: string; title: string }[];
+    for (const r of taskRows) taskNames.set(r.id, r.title);
+  }
+
+  const goalNames = new Map<string, string>();
+  if (goalIds.size > 0) {
+    const placeholders = Array.from(goalIds).map(() => "?").join(",");
+    const goalRows = db
+      .prepare(
+        `SELECT id, title FROM Goal WHERE id IN (${placeholders}) AND userId = ?`,
+      )
+      .all(...Array.from(goalIds), userId) as { id: string; title: string }[];
+    for (const r of goalRows) goalNames.set(r.id, r.title);
+  }
+
+  const habitNames = new Map<string, string>();
+  if (habitIds.size > 0) {
+    const placeholders = Array.from(habitIds).map(() => "?").join(",");
+    const habitRows = db
+      .prepare(
+        `SELECT id, name FROM Habit WHERE id IN (${placeholders}) AND userId = ?`,
+      )
+      .all(...Array.from(habitIds), userId) as { id: string; name: string }[];
+    for (const r of habitRows) habitNames.set(r.id, r.name);
+  }
+
+  return rows.map((row) => {
+    const event = rowToEvent(row);
+    let entityName = "(已删除)";
+    if (row.entityType === "task") entityName = taskNames.get(row.entityId) ?? entityName;
+    if (row.entityType === "goal") entityName = goalNames.get(row.entityId) ?? entityName;
+    if (row.entityType === "habit") entityName = habitNames.get(row.entityId) ?? entityName;
+    return { ...event, entityName };
+  });
+});
+
+export const getRecentDailies = cache(async function getRecentDailies(
+  userId: string,
+  limit = 14,
+): Promise<DailyEntry[]> {
+  const db = getDb();
+  const rows = db
+    .prepare(
+      `SELECT * FROM Daily WHERE userId = @userId
+       ORDER BY date DESC LIMIT @limit`,
+    )
+    .all({ userId, limit }) as {
+    id: string;
+    date: string;
+    focus: string | null;
+    win: string | null;
+    improve: string | null;
+    nextStep: string | null;
+  }[];
+  return rows.map(rowToDaily);
+});

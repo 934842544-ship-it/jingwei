@@ -1,10 +1,12 @@
 import Link from "next/link";
 import { getDashboard } from "@/lib/queries";
+import { getDaily } from "@/lib/services";
 import BigNumber from "@/components/ui/BigNumber";
 import TaskItem from "@/components/tasks/TaskItem";
 import HabitRow from "@/components/habits/HabitRow";
 import EmptyState from "@/components/ui/EmptyState";
 import DailyFocus from "@/components/daily/DailyFocus";
+import EveningReminder from "@/components/daily/EveningReminder";
 import { formatDisplayDate, toDateString, startOfDay } from "@/lib/date";
 import { requireUser } from "@/lib/auth/user";
 
@@ -20,12 +22,18 @@ export default async function HomePage() {
   const completedToday = data.completedToday;
 
   const todayStr = toDateString(startOfDay(today));
+  const todayDaily = getDaily(user.id, todayStr);
 
   const todayDoneCount = completedToday.length;
   const todayTotal = overdue.length + dueToday.length + waiting.length + completedToday.length;
 
+  const hasReflectionToday =
+    !!(todayDaily && (todayDaily.win || todayDaily.improve || todayDaily.nextStep));
+
   return (
     <div className="space-y-14">
+      <EveningReminder hasReflectionToday={hasReflectionToday} />
+
       {/* 头部：超大数字 + 日期 */}
       <header className="grid grid-cols-1 gap-6 md:grid-cols-12 md:items-end">
         <div className="md:col-span-8">
