@@ -18,10 +18,17 @@ export async function POST(
   const { id } = await params;
   const body = await readJsonBody(request);
   const dateStr = body?.date;
-  const date =
-    dateStr && typeof dateStr === "string" && !Number.isNaN(Date.parse(dateStr))
-      ? new Date(dateStr)
-      : undefined;
+
+  let date: Date | undefined;
+  if (dateStr !== undefined && dateStr !== null) {
+    if (typeof dateStr !== "string" || Number.isNaN(Date.parse(dateStr))) {
+      return Response.json(
+        { error: "date must be a valid date in YYYY-MM-DD or ISO 8601 format", code: "invalid_date" },
+        { status: 400 },
+      );
+    }
+    date = new Date(dateStr);
+  }
 
   const result = toggleHabitRecord(user.id, id, date);
   if (!result.ok) {

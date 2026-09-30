@@ -328,7 +328,8 @@ export const MCP_TOOL_HANDLERS: Record<string, McpToolHandler> = {
     const id = asString(args.id);
     if (!id) return textResult("Error: id is required");
     const task = await getTask(userId, id);
-    return jsonResult({ task: task ?? null });
+    if (!task) return textResult("Error [not_found]: Resource not found");
+    return jsonResult({ task });
   },
   async list_goals(userId, args) {
     const goals = await getGoals(userId);
@@ -340,7 +341,8 @@ export const MCP_TOOL_HANDLERS: Record<string, McpToolHandler> = {
     const id = asString(args.id);
     if (!id) return textResult("Error: id is required");
     const goal = await getGoal(userId, id);
-    return jsonResult({ goal: goal ?? null });
+    if (!goal) return textResult("Error [not_found]: Resource not found");
+    return jsonResult({ goal });
   },
   async list_goal_tasks(userId, args) {
     const goalId = asString(args.goalId);
@@ -356,7 +358,8 @@ export const MCP_TOOL_HANDLERS: Record<string, McpToolHandler> = {
     const id = asString(args.id);
     if (!id) return textResult("Error: id is required");
     const habit = await getHabit(userId, id);
-    return jsonResult({ habit: habit ?? null });
+    if (!habit) return textResult("Error [not_found]: Resource not found");
+    return jsonResult({ habit });
   },
 
   // Write: Tasks
@@ -469,9 +472,13 @@ export const MCP_TOOL_HANDLERS: Record<string, McpToolHandler> = {
     const habitId = asString(args.habitId);
     if (!habitId) return textResult("Error: habitId is required");
     const dateStr = asString(args.date);
-    const date = dateStr && !Number.isNaN(Date.parse(dateStr))
-      ? new Date(dateStr)
-      : undefined;
+    let date: Date | undefined;
+    if (dateStr !== undefined) {
+      if (Number.isNaN(Date.parse(dateStr))) {
+        return textResult("Error [invalid_date]: date must be a valid date in YYYY-MM-DD or ISO 8601 format");
+      }
+      date = new Date(dateStr);
+    }
     const result = toggleHabitRecord(userId, habitId, date);
     if (!result.ok) return textResult(`Error [${result.code}]: ${result.message}`);
     return jsonResult({ recorded: result.data.recorded });

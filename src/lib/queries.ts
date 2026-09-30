@@ -1,6 +1,6 @@
 import { cache } from "react";
 import { getDb } from "./db";
-import { startOfDay, addDays, startOfWeek, toDateString } from "./date";
+import { startOfDay, addDays, startOfWeek, toDateString, getShanghaiToday } from "./date";
 
 export interface GoalWithStats {
   id: string;
@@ -211,7 +211,7 @@ export const getGoalTasks = cache(
 
 export const getTasks = cache(
   async (userId: string, filters: TaskFilters): Promise<TaskWithGoal[]> => {
-    const today = new Date();
+    const today = getShanghaiToday();
     const dayStart = toDateString(startOfDay(today));
     const dayEnd = toDateString(addDays(startOfDay(today), 1));
 
@@ -275,8 +275,9 @@ const HEATMAP_DAYS = 91;
 
 export const getHabits = cache(async (userId: string): Promise<HabitWithRecords[]> => {
   const db = getDb();
+  const today = getShanghaiToday();
   const since = toDateString(
-    addDays(startOfDay(new Date()), -(HEATMAP_DAYS - 1)),
+    addDays(startOfDay(today), -(HEATMAP_DAYS - 1)),
   );
 
   const habits = db
@@ -316,8 +317,9 @@ export const getHabits = cache(async (userId: string): Promise<HabitWithRecords[
 
 export const getHabit = cache(async (userId: string, id: string): Promise<HabitWithRecords | null> => {
   const db = getDb();
+  const today = getShanghaiToday();
   const since = toDateString(
-    addDays(startOfDay(new Date()), -(HEATMAP_DAYS - 1)),
+    addDays(startOfDay(today), -(HEATMAP_DAYS - 1)),
   );
 
   const habit = db
@@ -352,7 +354,7 @@ export const getActiveGoals = cache(async (userId: string): Promise<GoalWithStat
 });
 
 export const getDashboard = cache(async (userId: string): Promise<DashboardData> => {
-  const today = new Date();
+  const today = getShanghaiToday();
   const dayStart = toDateString(startOfDay(today));
   const dayEnd = toDateString(addDays(startOfDay(today), 1));
 
@@ -400,7 +402,7 @@ export const getDashboard = cache(async (userId: string): Promise<DashboardData>
 });
 
 export const getStats = cache(async (userId: string): Promise<StatsData> => {
-  const today = new Date();
+  const today = getShanghaiToday();
   const weekStart = toDateString(startOfWeek(today));
   const monthStart = toDateString(
     new Date(today.getFullYear(), today.getMonth(), 1),

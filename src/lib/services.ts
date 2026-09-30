@@ -1,6 +1,6 @@
 import { revalidatePath } from "next/cache";
 import { getDb, cuid, nowIso } from "@/lib/db";
-import { startOfDay, toDateString } from "@/lib/date";
+import { startOfDay, toDateString, getShanghaiToday } from "@/lib/date";
 
 export type ServiceErrorCode =
   | "not_found"
@@ -8,6 +8,7 @@ export type ServiceErrorCode =
   | "invalid_name"
   | "invalid_goal"
   | "invalid_status"
+  | "invalid_date"
   | "no_fields";
 
 export type ServiceResult<T> =
@@ -20,6 +21,7 @@ const FAIL_MESSAGES: Record<ServiceErrorCode, string> = {
   invalid_name: "A non-empty name is required",
   invalid_goal: "goalId does not reference one of your goals",
   invalid_status: "status must be one of ACTIVE | DONE | ARCHIVED",
+  invalid_date: "date must be a valid date in YYYY-MM-DD or ISO 8601 format",
   no_fields: "No updatable fields were provided",
 };
 
@@ -343,7 +345,9 @@ export function toggleHabitRecord(
     .get({ habitId, userId });
   if (!habit) return fail("not_found");
 
-  const dateStr = toDateString(startOfDay(date ?? new Date()));
+  const targetDate = date ?? getShanghaiToday();
+  if (Number.isNaN(targetDate.getTime())) return fail("invalid_date");
+  const dateStr = toDateString(startOfDay(targetDate));
 
   const existing = db
     .prepare("SELECT id FROM HabitRecord WHERE habitId = @habitId AND date = @date")

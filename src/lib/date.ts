@@ -1,13 +1,49 @@
 /**
- * 本地时区日期工具。
- * 习惯记录以 "YYYY-MM-DD" 字符串存储，规避 SQLite DateTime 的时区偏移问题。
+ * Asia/Shanghai 时区日期工具。
+ * 习惯记录以 "YYYY-MM-DD" 字符串存储，规避 DateTime 的时区偏移问题。
+ * 所有"今天"判断统一使用 Asia/Shanghai 时区。
  */
+
+const TIME_ZONE = "Asia/Shanghai";
+
+export function getShanghaiToday(): Date {
+  const now = new Date();
+  const fmt = new Intl.DateTimeFormat("sv-SE", {
+    timeZone: TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
+  const parts = fmt.formatToParts(now);
+  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? "0";
+  return new Date(
+    Number(get("year")),
+    Number(get("month")) - 1,
+    Number(get("day")),
+    Number(get("hour")),
+    Number(get("minute")),
+    Number(get("second")),
+  );
+}
 
 export function toDateString(date: Date): string {
   const y = date.getFullYear();
   const m = String(date.getMonth() + 1).padStart(2, "0");
   const d = String(date.getDate()).padStart(2, "0");
   return `${y}-${m}-${d}`;
+}
+
+export function toShanghaiDateString(date: Date): string {
+  const fmt = new Intl.DateTimeFormat("sv-SE", {
+    timeZone: TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+  return fmt.format(date);
 }
 
 /** 解析 "YYYY-MM-DD" 为本地零点 Date；无效输入返回 null */
